@@ -7,16 +7,11 @@ public enum WebSocketEvent: Sendable {
 }
 
 public enum WebSocketError: Error, LocalizedError {
-
-  /// Throws if ``WebSocket/send(text:)``, ``WebSocket/send(binary:)``, or ``WebSocket/close(code:reason:)`` is called when the ``WebSocket`` is closed.
-  case connectionClosed
-
   /// An error occurred while connecting to the peer.
   case connection(message: String, error: any Error)
 
   public var errorDescription: String? {
     switch self {
-    case .connectionClosed: "Connection Closed"
     case .connection(let message, let error): "\(message) \(error.localizedDescription)"
     }
   }
@@ -25,15 +20,15 @@ public enum WebSocketError: Error, LocalizedError {
 /// The interface for WebSocket connection.
 public protocol WebSocket: Sendable {
   /// Sends text data to the connected peer.
-  func send(text: String) throws
+  func send(text: String)
 
   /// Sends binary data to the connected peer.
-  func send(binary: Data) throws
+  func send(binary: Data)
 
   /// Closes the WebSocket connection and the ``events`` `AsyncStream`.
   ///
   /// Sends a Close frame to the peer. If the optional `code` and `reason` arguments are given, they will be included in the Close frame. If no `code` is set then the peer will see a 1005 status code. If no `reason` is set then the peer will not receive a reason string.
-  func close(code: Int?, reason: String?) throws
+  func close(code: Int?, reason: String?)
 
   @discardableResult
   func listen(_ callback: @escaping @Sendable (WebSocketEvent) -> Void) -> ObservationToken
@@ -52,8 +47,8 @@ extension WebSocket {
   /// Closes the WebSocket connection and the ``events`` `AsyncStream`.
   ///
   /// Sends a Close frame to the peer. If the optional `code` and `reason` arguments are given, they will be included in the Close frame. If no `code` is set then the peer will see a 1005 status code. If no `reason` is set then the peer will not receive a reason string.
-  public func close() throws {
-    try self.close(code: nil, reason: nil)
+  public func close() {
+    self.close(code: nil, reason: nil)
   }
 
   /// An `AsyncStream` of ``WebSocketEvent`` received from the peer.

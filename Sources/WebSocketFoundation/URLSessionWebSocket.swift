@@ -129,9 +129,9 @@ public final class URLSessionWebSocket: WebSocket {
     _trigger(.close(code: code, reason: closeReason))
   }
 
-  public func send(text: String) throws {
+  public func send(text: String) {
     guard !isClosed else {
-      throw WebSocketError.connectionClosed
+      return
     }
 
     _task.send(.string(text)) { [weak self] error in
@@ -142,9 +142,11 @@ public final class URLSessionWebSocket: WebSocket {
   }
 
   @discardableResult
-  public func listen(_ callback: @escaping @Sendable (WebSocketEvent) -> Void) -> ObservationToken {
+  public func listen(
+    _ callback: @escaping @Sendable (WebSocketEvent) -> Void
+  ) -> ObservationToken {
     let id = UUID()
-    let token = ObservationToken { [weak self] in
+    let token = ObservationToken { [weak self, id] in
       self?.mutableState.withValue {
         $0.callbacks.removeAll {
           $0.id == id
@@ -170,9 +172,9 @@ public final class URLSessionWebSocket: WebSocket {
     }
   }
 
-  public func send(binary: Data) throws {
+  public func send(binary: Data) {
     guard !isClosed else {
-      throw WebSocketError.connectionClosed
+      return
     }
 
     _task.send(.data(binary)) { [weak self] error in
@@ -182,9 +184,9 @@ public final class URLSessionWebSocket: WebSocket {
     }
   }
 
-  public func close(code: Int?, reason: String?) throws {
+  public func close(code: Int?, reason: String?) {
     guard !isClosed else {
-      throw WebSocketError.connectionClosed
+      return
     }
 
     if code != nil, code != 1000, !(code! >= 3000 && code! <= 4999) {
@@ -193,7 +195,7 @@ public final class URLSessionWebSocket: WebSocket {
     }
 
     if reason != nil, reason!.utf8.count > 123 {
-      preconditionFailure("reason must be <= 123 bytes long the encoded sa UTF-8")
+      preconditionFailure("reason must be <= 123 bytes long and encoded as UTF-8")
     }
 
     if !isClosed {
@@ -201,7 +203,9 @@ public final class URLSessionWebSocket: WebSocket {
       if code != nil {
         let reason = reason ?? ""
         _task.cancel(
-          with: URLSessionWebSocketTask.CloseCode(rawValue: code!)!, reason: Data(reason.utf8))
+          with: URLSessionWebSocketTask.CloseCode(rawValue: code!)!,
+          reason: Data(reason.utf8)
+        )
       } else {
         _task.cancel()
       }
@@ -328,24 +332,5 @@ final class _Delegate: NSObject, URLSessionDelegate, URLSessionDataDelegate, URL
     didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?
   ) {
     onWebSocketTaskClosed?(session, webSocketTask, closeCode.rawValue, reason)
-  }
-}
-
-final class LockIsolated<Value>: @unchecked Sendable {
-  private let lock = NSRecursiveLock()
-  private var _value: Value
-
-  var value: Value {
-    lock.withLock { _value }
-  }
-
-  init(_ value: Value) {
-    self._value = value
-  }
-
-  func withValue<R>(_ body: (inout Value) throws -> R) rethrows -> R {
-    var copy = self._value
-    defer { self._value = copy }
-    return try lock.withLock { try body(&copy) }
   }
 }
