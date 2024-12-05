@@ -1,0 +1,22 @@
+{
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:swift-websocket}",
+            "name": "Debug Example",
+            "program": "${workspaceFolder:swift-websocket}/.build/debug/Example",
+            "preLaunchTask": "swift: Build Debug Example"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:swift-websocket}",
+            "name": "Release Example",
+            "program": "${workspaceFolder:swift-websocket}/.build/release/Example",
+            "preLaunchTask": "swift: Build Release Example"
+        }
+    ]
+}

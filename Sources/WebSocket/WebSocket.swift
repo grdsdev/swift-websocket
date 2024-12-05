@@ -30,6 +30,7 @@ public protocol WebSocket: Sendable, AnyObject {
   /// Sends a Close frame to the peer. If the optional `code` and `reason` arguments are given, they will be included in the Close frame. If no `code` is set then the peer will see a 1005 status code. If no `reason` is set then the peer will not receive a reason string.
   func close(code: Int?, reason: String?)
 
+  /// Listen for event messages in the connection.
   var onEvent: (@Sendable (WebSocketEvent) -> Void)? { get set }
 
   /// The WebSocket subprotocol negotiated with the peer.
@@ -39,6 +40,7 @@ public protocol WebSocket: Sendable, AnyObject {
   /// See [RFC-6455 1.9](https://datatracker.ietf.org/doc/html/rfc6455#section-1.9).
   var `protocol`: String { get }
 
+  /// Whether connection is closed.
   var isClosed: Bool { get }
 }
 
