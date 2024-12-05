@@ -107,14 +107,14 @@ public final class URLSessionWebSocket: WebSocket {
   /// Close the WebSocket connection due to an error and send the ``WebSocketEvent/close(code:reason:)`` event.
   private func _closeConnectionWithError(_ error: any Error) {
     let nsError = error as NSError
-    if nsError.domain == NSPOSIXErrorDomain && nsError.code == kPOSIXErrorENOTCONN {
+    if nsError.domain == NSPOSIXErrorDomain && nsError.code == 57 {
       // Socket is not connected.
       // onWebsocketTaskClosed/onComplete will be invoked and may indicate a close code.
       return
     }
     let (code, reason) =
       switch (nsError.domain, nsError.code) {
-      case (NSPOSIXErrorDomain, kPOSIXErrorECONNABORTED):
+      case (NSPOSIXErrorDomain, 100):
         (CloseCode.protocolError, nsError.localizedDescription)
       case (_, _):
         (CloseCode.abnormalClosure, nsError.localizedDescription)
