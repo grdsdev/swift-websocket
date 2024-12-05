@@ -5,12 +5,22 @@ public final class FakeWebSocket: WebSocket {
     var isClosed: Bool = false
     weak var other: FakeWebSocket?
     var onEvent: (@Sendable (WebSocketEvent) -> Void)?
+
+    var sentEvents: [WebSocketEvent] = []
   }
 
   private let mutableState = LockIsolated(MutableState())
 
   private init(`protocol`: String) {
     self.`protocol` = `protocol`
+  }
+
+  public var sentEvents: [WebSocketEvent] {
+    mutableState.value.sentEvents
+  }
+
+  public var receivedEvents: [WebSocketEvent] {
+    mutableState.value.other?.sentEvents ?? []
   }
 
   public func close(code: Int?, reason: String?) {
@@ -57,6 +67,7 @@ public final class FakeWebSocket: WebSocket {
 
   func _trigger(_ event: WebSocketEvent) {
     mutableState.withValue {
+      $0.sentEvents.append(event)
       $0.onEvent?(event)
 
       if case .close = event {
