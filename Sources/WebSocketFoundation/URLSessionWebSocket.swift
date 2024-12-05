@@ -38,7 +38,8 @@ public final class URLSessionWebSocket: WebSocket {
           //    is a no-op.
           // 3. an error occurred (e.g. network failure) and `_connectionClosed`
           //    will signal that and close `event`.
-          webSocket._connectionClosed(code: 1006, reason: Data("abnormal close".utf8))
+          webSocket._connectionClosed(
+            code: CloseCode.abnormalClosure, reason: Data("abnormal close".utf8))
         } else if let error {
           continuation.resume(
             throwing: WebSocketError.connection(
@@ -54,7 +55,7 @@ public final class URLSessionWebSocket: WebSocket {
         continuation.resume(returning: webSocket!)
       },
       onWebSocketTaskClosed: { session, task, code, reason in
-        assert(webSocket != nil)
+        assert(webSocket != nil, "connection should exist by this time")
         webSocket!._connectionClosed(code: code, reason: reason)
       }
     )
@@ -68,7 +69,7 @@ public final class URLSessionWebSocket: WebSocket {
 
   struct MutableState {
     var isClosed = false
-    var callbacks: [(id: UUID, handler: @Sendable (WebSocketEvent) -> Void)] = []
+    var onEvent: (@Sendable (WebSocketEvent) -> Void)?
   }
 
   let mutableState = LockIsolated(MutableState())
@@ -103,20 +104,20 @@ public final class URLSessionWebSocket: WebSocket {
     }
   }
 
-  /// Close the WebSocket cnnection due to an error and send the ``WebSocketEvent/close(code:reason:)`` event.
+  /// Close the WebSocket connection due to an error and send the ``WebSocketEvent/close(code:reason:)`` event.
   private func _closeConnectionWithError(_ error: any Error) {
     let nsError = error as NSError
-    if nsError.domain == NSPOSIXErrorDomain && nsError.code == 57 {
+    if nsError.domain == NSPOSIXErrorDomain && nsError.code == kPOSIXErrorENOTCONN {
       // Socket is not connected.
       // onWebsocketTaskClosed/onComplete will be invoked and may indicate a close code.
       return
     }
     let (code, reason) =
       switch (nsError.domain, nsError.code) {
-      case (NSPOSIXErrorDomain, 100):
-        (1002, nsError.localizedDescription)
+      case (NSPOSIXErrorDomain, kPOSIXErrorECONNABORTED):
+        (CloseCode.protocolError, nsError.localizedDescription)
       case (_, _):
-        (1006, nsError.localizedDescription)
+        (CloseCode.abnormalClosure, nsError.localizedDescription)
       }
     _task.cancel()
     _connectionClosed(code: code, reason: Data(reason.utf8))
@@ -141,32 +142,17 @@ public final class URLSessionWebSocket: WebSocket {
     }
   }
 
-  @discardableResult
-  public func listen(
-    _ callback: @escaping @Sendable (WebSocketEvent) -> Void
-  ) -> ObservationToken {
-    let id = UUID()
-    let token = ObservationToken { [weak self, id] in
-      self?.mutableState.withValue {
-        $0.callbacks.removeAll {
-          $0.id == id
-        }
-      }
-    }
-
-    mutableState.withValue {
-      $0.callbacks.append((id, callback))
-    }
-
-    return token
+  public var onEvent: (@Sendable (WebSocketEvent) -> Void)? {
+    get { mutableState.value.onEvent }
+    set { mutableState.withValue { $0.onEvent = newValue } }
   }
 
   private func _trigger(_ event: WebSocketEvent) {
     mutableState.withValue {
-      $0.callbacks.forEach { $0.handler(event) }
+      $0.onEvent?(event)
 
       if case .close = event {
-        $0.callbacks = []
+        $0.onEvent = nil
         $0.isClosed = true
       }
     }
@@ -234,17 +220,12 @@ extension URLSession {
     queue.maxConcurrentOperationCount = 1
 
     let hasDelegate =
-      onRedirect != nil || onResponse != nil || onData != nil || onFinishDownloading != nil
-      || onComplete != nil || onWebSocketTaskOpened != nil || onWebSocketTaskClosed != nil
+      onComplete != nil || onWebSocketTaskOpened != nil || onWebSocketTaskClosed != nil
 
     if hasDelegate {
       return URLSession(
         configuration: configuration,
         delegate: _Delegate(
-          onRedirect: onRedirect,
-          onResponse: onResponse,
-          onData: onData,
-          onFinishDownloading: onFinishDownloading,
           onComplete: onComplete,
           onWebSocketTaskOpened: onWebSocketTaskOpened,
           onWebSocketTaskClosed: onWebSocketTaskClosed
@@ -260,26 +241,11 @@ extension URLSession {
 final class _Delegate: NSObject, URLSessionDelegate, URLSessionDataDelegate, URLSessionTaskDelegate,
   URLSessionWebSocketDelegate
 {
-  let onRedirect:
-    (@Sendable (URLSession, URLSessionTask, HTTPURLResponse, URLRequest) -> URLRequest?)?
-  let onResponse:
-    (@Sendable (URLSession, URLSessionTask, URLResponse) -> URLSession.ResponseDisposition)?
-  let onData: (@Sendable (URLSession, URLSessionTask, Data) -> Void)?
-  let onFinishDownloading: (@Sendable (URLSession, URLSessionDownloadTask, URL) -> Void)?
   let onComplete: (@Sendable (URLSession, URLSessionTask, (any Error)?) -> Void)?
   let onWebSocketTaskOpened: (@Sendable (URLSession, URLSessionWebSocketTask, String?) -> Void)?
   let onWebSocketTaskClosed: (@Sendable (URLSession, URLSessionWebSocketTask, Int?, Data?) -> Void)?
 
   init(
-    onRedirect: (
-      @Sendable (URLSession, URLSessionTask, HTTPURLResponse, URLRequest) -> URLRequest?
-    )?,
-    onResponse: (
-      @Sendable (URLSession, URLSessionTask, URLResponse) ->
-        URLSession.ResponseDisposition
-    )?,
-    onData: (@Sendable (URLSession, URLSessionTask, Data) -> Void)?,
-    onFinishDownloading: (@Sendable (URLSession, URLSessionDownloadTask, URL) -> Void)?,
     onComplete: (@Sendable (URLSession, URLSessionTask, (any Error)?) -> Void)?,
     onWebSocketTaskOpened: (
       @Sendable (URLSession, URLSessionWebSocketTask, String?) -> Void
@@ -288,30 +254,9 @@ final class _Delegate: NSObject, URLSessionDelegate, URLSessionDataDelegate, URL
       @Sendable (URLSession, URLSessionWebSocketTask, Int?, Data?) -> Void
     )?
   ) {
-    self.onRedirect = onRedirect
-    self.onResponse = onResponse
-    self.onData = onData
-    self.onFinishDownloading = onFinishDownloading
     self.onComplete = onComplete
     self.onWebSocketTaskOpened = onWebSocketTaskOpened
     self.onWebSocketTaskClosed = onWebSocketTaskClosed
-  }
-
-  func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
-    onData?(session, dataTask, data)
-  }
-
-  func urlSession(
-    _ session: URLSession, task: URLSessionTask,
-    willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest
-  ) async -> URLRequest? {
-    onRedirect?(session, task, response, request)
-  }
-
-  func urlSession(
-    _ session: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse
-  ) async -> URLSession.ResponseDisposition {
-    onResponse?(session, dataTask, response) ?? .allow
   }
 
   func urlSession(

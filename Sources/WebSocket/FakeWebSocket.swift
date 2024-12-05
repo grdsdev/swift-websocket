@@ -3,8 +3,8 @@ import Foundation
 public final class FakeWebSocket: WebSocket {
   struct MutableState {
     var isClosed: Bool = false
-    var callbacks: [(id: UUID, handler: @Sendable (WebSocketEvent) -> Void)] = []
     weak var other: FakeWebSocket?
+    var onEvent: (@Sendable (WebSocketEvent) -> Void)?
   }
 
   private let mutableState = LockIsolated(MutableState())
@@ -44,22 +44,9 @@ public final class FakeWebSocket: WebSocket {
     }
   }
 
-  @discardableResult
-  public func listen(_ callback: @escaping @Sendable (WebSocketEvent) -> Void) -> ObservationToken {
-    let id = UUID()
-    let token = ObservationToken { [weak self] in
-      self?.mutableState.withValue {
-        $0.callbacks.removeAll {
-          $0.id == id
-        }
-      }
-    }
-
-    mutableState.withValue {
-      $0.callbacks.append((id, callback))
-    }
-
-    return token
+  public var onEvent: (@Sendable (WebSocketEvent) -> Void)? {
+    get { mutableState.value.onEvent }
+    set { mutableState.withValue { $0.onEvent = newValue } }
   }
 
   public let `protocol`: String
@@ -70,10 +57,10 @@ public final class FakeWebSocket: WebSocket {
 
   func _trigger(_ event: WebSocketEvent) {
     mutableState.withValue {
-      $0.callbacks.forEach { $0.handler(event) }
+      $0.onEvent?(event)
 
       if case .close = event {
-        $0.callbacks = []
+        $0.onEvent = nil
         $0.isClosed = true
       }
     }

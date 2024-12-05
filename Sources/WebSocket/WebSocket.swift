@@ -18,7 +18,7 @@ public enum WebSocketError: Error, LocalizedError {
 }
 
 /// The interface for WebSocket connection.
-public protocol WebSocket: Sendable {
+public protocol WebSocket: Sendable, AnyObject {
   /// Sends text data to the connected peer.
   func send(text: String)
 
@@ -30,8 +30,7 @@ public protocol WebSocket: Sendable {
   /// Sends a Close frame to the peer. If the optional `code` and `reason` arguments are given, they will be included in the Close frame. If no `code` is set then the peer will see a 1005 status code. If no `reason` is set then the peer will not receive a reason string.
   func close(code: Int?, reason: String?)
 
-  @discardableResult
-  func listen(_ callback: @escaping @Sendable (WebSocketEvent) -> Void) -> ObservationToken
+  var onEvent: (@Sendable (WebSocketEvent) -> Void)? { get set }
 
   /// The WebSocket subprotocol negotiated with the peer.
   ///
@@ -63,7 +62,7 @@ extension WebSocket {
   /// Errors will never appear in this `AsyncStream`.
   public var events: AsyncStream<WebSocketEvent> {
     let (stream, continuation) = AsyncStream<WebSocketEvent>.makeStream()
-    let token = self.listen { event in
+    self.onEvent = { event in
       continuation.yield(event)
 
       if case .close = event {
@@ -71,19 +70,14 @@ extension WebSocket {
       }
     }
 
-    continuation.onTermination = { _ in token.cancel() }
+    continuation.onTermination = { _ in
+      self.onEvent = nil
+    }
     return stream
   }
 }
 
-public struct ObservationToken: Sendable {
-  var onCancel: @Sendable () -> Void
-
-  package init(_ onCancel: @escaping @Sendable () -> Void) {
-    self.onCancel = onCancel
-  }
-
-  public func cancel() {
-    onCancel()
-  }
+package enum CloseCode {
+  package static let protocolError = 1002
+  package static let abnormalClosure = 1006
 }

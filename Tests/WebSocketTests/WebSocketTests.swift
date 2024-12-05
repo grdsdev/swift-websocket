@@ -4,6 +4,20 @@ import XCTest
 
 final class WebSocketTests: XCTestCase {
   func testExample() {
-    // Write your test here and use APIs like `XCTAssertEqual` to check expected conditions.
+    let (client, server) = FakeWebSocket.fakes()
+
+    client.onEvent = { event in
+      print("client", event)
+    }
+
+    server.onEvent = { event in
+      print("server", event)
+    }
+
+    client.send(text: "ping")
+    server.send(text: "pong")
+
+    client.close()
+    _ = ()
   }
 }
