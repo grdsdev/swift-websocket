@@ -1,5 +1,5 @@
 import Foundation
-import WebSocket
+@_exported import WebSocket
 
 /// A WebSocket connection that uses `URLSession`.
 public final class URLSessionWebSocket: WebSocket {
@@ -124,8 +124,6 @@ public final class URLSessionWebSocket: WebSocket {
   }
 
   private func _connectionClosed(code: Int?, reason: Data?) {
-    guard !isClosed else { return }
-
     let closeReason = reason.map { String(decoding: $0, as: UTF8.self) } ?? ""
     _trigger(.close(code: code, reason: closeReason))
   }
@@ -184,16 +182,19 @@ public final class URLSessionWebSocket: WebSocket {
       preconditionFailure("reason must be <= 123 bytes long and encoded as UTF-8")
     }
 
-    if !isClosed {
-      mutableState.withValue { $0.isClosed = true }
-      if code != nil {
-        let reason = reason ?? ""
-        _task.cancel(
-          with: URLSessionWebSocketTask.CloseCode(rawValue: code!)!,
-          reason: Data(reason.utf8)
-        )
-      } else {
-        _task.cancel()
+    mutableState.withValue {
+      if !$0.isClosed {
+        if code != nil {
+          let reason = reason ?? ""
+          _task.cancel(
+            with: URLSessionWebSocketTask.CloseCode(rawValue: code!)!,
+            reason: Data(reason.utf8)
+          )
+        } else {
+          _task.cancel()
+        }
+
+        $0.isClosed = true
       }
     }
   }

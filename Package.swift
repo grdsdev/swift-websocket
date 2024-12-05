@@ -24,6 +24,10 @@ let package = Package(
       name: "WebSocketFoundation",
       dependencies: ["WebSocket"]
     ),
+    .testTarget(
+      name: "WebSocketFoundationTests",
+      dependencies: ["WebSocketFoundation"]
+    ),
     .executableTarget(name: "Example", dependencies: ["WebSocketFoundation"]),
   ]
 )
