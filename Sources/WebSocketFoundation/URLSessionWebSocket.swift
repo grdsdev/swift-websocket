@@ -43,7 +43,7 @@ public final class URLSessionWebSocket: WebSocket {
           // 3. an error occurred (e.g. network failure) and `_connectionClosed`
           //    will signal that and close `event`.
           webSocket._connectionClosed(
-            code: CloseCode.abnormalClosure, reason: Data("abnormal close".utf8))
+            code: WebSocketCloseCode.abnormalClosure, reason: Data("abnormal close".utf8))
         } else if let error {
           continuation.resume(
             throwing: WebSocketError.connection(
@@ -60,7 +60,8 @@ public final class URLSessionWebSocket: WebSocket {
       },
       onWebSocketTaskClosed: { session, task, code, reason in
         assert(webSocket != nil, "connection should exist by this time")
-        webSocket!._connectionClosed(code: code, reason: reason)
+        webSocket!._connectionClosed(
+          code: code.map(WebSocketCloseCode.init(rawValue:)), reason: reason)
       }
     )
 
@@ -74,9 +75,20 @@ public final class URLSessionWebSocket: WebSocket {
   struct MutableState {
     var isClosed = false
     var onEvent: (@Sendable (WebSocketEvent) -> Void)?
+
+    var closeCode: WebSocketCloseCode?
+    var closeReason: String?
   }
 
   let mutableState = LockIsolated(MutableState())
+
+  public var closeCode: WebSocketCloseCode? {
+    mutableState.value.closeCode
+  }
+
+  public var closeReason: String? {
+    mutableState.value.closeReason
+  }
 
   public var isClosed: Bool {
     mutableState.value.isClosed
@@ -119,15 +131,17 @@ public final class URLSessionWebSocket: WebSocket {
     let (code, reason) =
       switch (nsError.domain, nsError.code) {
       case (NSPOSIXErrorDomain, 100):
-        (CloseCode.protocolError, nsError.localizedDescription)
+        (WebSocketCloseCode.protocolError, nsError.localizedDescription)
       case (_, _):
-        (CloseCode.abnormalClosure, nsError.localizedDescription)
+        (WebSocketCloseCode.abnormalClosure, nsError.localizedDescription)
       }
     _task.cancel()
     _connectionClosed(code: code, reason: Data(reason.utf8))
   }
 
-  private func _connectionClosed(code: Int?, reason: Data?) {
+  private func _connectionClosed(code: WebSocketCloseCode?, reason: Data?) {
+    guard !isClosed else { return }
+
     let closeReason = reason.map { String(decoding: $0, as: UTF8.self) } ?? ""
     _trigger(.close(code: code, reason: closeReason))
   }
@@ -153,9 +167,11 @@ public final class URLSessionWebSocket: WebSocket {
     mutableState.withValue {
       $0.onEvent?(event)
 
-      if case .close = event {
+      if case .close(let code, let reason) = event {
         $0.onEvent = nil
         $0.isClosed = true
+        $0.closeCode = code
+        $0.closeReason = reason
       }
     }
   }
@@ -172,14 +188,14 @@ public final class URLSessionWebSocket: WebSocket {
     }
   }
 
-  public func close(code: Int?, reason: String?) {
+  public func close(code: WebSocketCloseCode?, reason: String?) {
     guard !isClosed else {
       return
     }
 
-    if code != nil, code != 1000, !(code! >= 3000 && code! <= 4999) {
+    if code != nil, code?.rawValue != 1000, !(code!.rawValue >= 3000 && code!.rawValue <= 4999) {
       preconditionFailure(
-        "Invalid argument: \(code!), close code must be 1000 or in the range 3000-4999")
+        "Invalid argument: \(code!.rawValue), close code must be 1000 or in the range 3000-4999")
     }
 
     if reason != nil, reason!.utf8.count > 123 {
@@ -191,14 +207,12 @@ public final class URLSessionWebSocket: WebSocket {
         if code != nil {
           let reason = reason ?? ""
           _task.cancel(
-            with: URLSessionWebSocketTask.CloseCode(rawValue: code!)!,
+            with: URLSessionWebSocketTask.CloseCode(rawValue: code!.rawValue)!,
             reason: Data(reason.utf8)
           )
         } else {
           _task.cancel()
         }
-
-        $0.isClosed = true
       }
     }
   }

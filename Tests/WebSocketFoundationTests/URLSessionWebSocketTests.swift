@@ -45,13 +45,17 @@ final class URLSessionWebSocketTests: XCTestCase {
 
     webSocket.onEvent = { event in
       if case .close(let code, let reason) = event {
-        XCTAssertEqual(code, 1000)
+        XCTAssertEqual(code, .normalClosure)
         XCTAssertEqual(reason, "Normal closure")
         expectation.fulfill()
       }
     }
 
-    webSocket.close(code: 1000, reason: "Normal closure")
+    webSocket.close(code: .normalClosure, reason: "Normal closure")
+    webSocket.close()
     await fulfillment(of: [expectation], timeout: 10)
+
+    XCTAssertEqual(webSocket.closeCode, .normalClosure)
+    XCTAssertEqual(webSocket.closeReason, "Normal closure")
   }
 }

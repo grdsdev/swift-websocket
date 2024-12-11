@@ -7,6 +7,8 @@ public final class FakeWebSocket: WebSocket {
     var onEvent: (@Sendable (WebSocketEvent) -> Void)?
 
     var sentEvents: [WebSocketEvent] = []
+    var closeCode: WebSocketCloseCode?
+    var closeReason: String?
   }
 
   private let mutableState = LockIsolated(MutableState())
@@ -23,13 +25,21 @@ public final class FakeWebSocket: WebSocket {
     mutableState.value.other?.sentEvents ?? []
   }
 
-  public func close(code: Int?, reason: String?) {
+  public var closeCode: WebSocketCloseCode? {
+    mutableState.value.closeCode
+  }
+
+  public var closeReason: String? {
+    mutableState.value.closeReason
+  }
+
+  public func close(code: WebSocketCloseCode?, reason: String?) {
     mutableState.withValue { s in
       if s.isClosed { return }
 
       s.isClosed = true
       if s.other?.isClosed == false {
-        s.other?._trigger(.close(code: code ?? 1005, reason: reason ?? ""))
+        s.other?._trigger(.close(code: code ?? .noStatusReceived, reason: reason ?? ""))
       }
     }
   }
@@ -70,9 +80,11 @@ public final class FakeWebSocket: WebSocket {
       $0.sentEvents.append(event)
       $0.onEvent?(event)
 
-      if case .close = event {
+      if case .close(let code, let reason) = event {
         $0.onEvent = nil
         $0.isClosed = true
+        $0.closeCode = code
+        $0.closeReason = reason
       }
     }
   }
