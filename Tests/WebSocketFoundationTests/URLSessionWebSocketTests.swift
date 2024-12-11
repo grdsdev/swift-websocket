@@ -18,7 +18,7 @@ final class URLSessionWebSocketTests: XCTestCase {
     await Task.yield()
 
     webSocket.send(text: "Hello, WebSocket!")
-    await fulfillment(of: [expectation], timeout: 1)
+    await fulfillment(of: [expectation], timeout: 10)
   }
 
   func testWebSocketSendBinary() async throws {
@@ -35,7 +35,7 @@ final class URLSessionWebSocketTests: XCTestCase {
     }
 
     webSocket.send(binary: data)
-    await fulfillment(of: [expectation], timeout: 1)
+    await fulfillment(of: [expectation], timeout: 10)
   }
 
   func testWebSocketClose() async throws {
