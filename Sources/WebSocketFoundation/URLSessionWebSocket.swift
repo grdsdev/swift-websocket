@@ -1,6 +1,10 @@
 import Foundation
 @_exported import WebSocket
 
+#if canImport(FoundationNetworking)
+  import FoundationNetworking
+#endif
+
 /// A WebSocket connection that uses `URLSession`.
 public final class URLSessionWebSocket: WebSocket {
   private init(
