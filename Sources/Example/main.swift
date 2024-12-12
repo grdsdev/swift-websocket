@@ -1,6 +1,11 @@
+import Dispatch
 import Foundation
 import WebSocket
 import WebSocketFoundation
+
+#if canImport(FoundationNetworking)
+  let NSEC_PER_SEC: UInt64 = 1_000_000_000
+#endif
 
 let requestId = 305
 

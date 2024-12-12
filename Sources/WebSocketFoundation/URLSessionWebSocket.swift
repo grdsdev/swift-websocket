@@ -14,7 +14,7 @@ public final class URLSessionWebSocket: WebSocket {
     self._task = _task
     self._protocol = _protocol
 
-    _scheduleReceive()
+    Task { await _scheduleReceive() }
   }
 
   /// Create a new WebSocket connection.
@@ -95,7 +95,7 @@ public final class URLSessionWebSocket: WebSocket {
   }
 
   /// Handle an incoming message from the peet and schedule receiving the next message.
-  private func _handleMessage(_ value: URLSessionWebSocketTask.Message) {
+  private func _handleMessage(_ value: URLSessionWebSocketTask.Message) async {
     guard !isClosed else { return }
 
     let event =
@@ -108,15 +108,15 @@ public final class URLSessionWebSocket: WebSocket {
         fatalError("Unsupported message.")
       }
     _trigger(event)
-    _scheduleReceive()
+    await _scheduleReceive()
   }
 
-  private func _scheduleReceive() {
-    _task.receive { [weak self] result in
-      switch result {
-      case .success(let value): self?._handleMessage(value)
-      case .failure(let error): self?._closeConnectionWithError(error)
-      }
+  private func _scheduleReceive() async {
+    do {
+      let message = try await _task.receive()
+      await self._handleMessage(message)
+    } catch {
+      self._closeConnectionWithError(error)
     }
   }
 
@@ -151,9 +151,11 @@ public final class URLSessionWebSocket: WebSocket {
       return
     }
 
-    _task.send(.string(text)) { [weak self] error in
-      if let error {
-        self?._closeConnectionWithError(error)
+    Task {
+      do {
+        try await _task.send(.string(text))
+      } catch {
+        _closeConnectionWithError(error)
       }
     }
   }
@@ -181,9 +183,11 @@ public final class URLSessionWebSocket: WebSocket {
       return
     }
 
-    _task.send(.data(binary)) { [weak self] error in
-      if let error {
-        self?._closeConnectionWithError(error)
+    Task {
+      do {
+        try await _task.send(.data(binary))
+      } catch {
+        _closeConnectionWithError(error)
       }
     }
   }
