@@ -18,6 +18,12 @@ public final class URLSessionWebSocket: WebSocket {
   }
 
   /// Create a new WebSocket connection.
+  /// - Parameters:
+  ///   - url: The URL to connect to.
+  ///   - protocols: An optional array of protocols to negotiate with the server.
+  ///   - configuration: An optional `URLSessionConfiguration` to use for the connection.
+  /// - Returns: A `URLSessionWebSocket` instance.
+  /// - Throws: An error if the connection fails.
   public static func connect(
     to url: URL,
     protocols: [String]? = nil,
@@ -94,7 +100,6 @@ public final class URLSessionWebSocket: WebSocket {
     mutableState.value.isClosed
   }
 
-  /// Handle an incoming message from the peet and schedule receiving the next message.
   private func _handleMessage(_ value: URLSessionWebSocketTask.Message) {
     guard !isClosed else { return }
 
@@ -120,7 +125,6 @@ public final class URLSessionWebSocket: WebSocket {
     }
   }
 
-  /// Close the WebSocket connection due to an error and send the ``WebSocketEvent/close(code:reason:)`` event.
   private func _closeConnectionWithError(_ error: any Error) {
     let nsError = error as NSError
     if nsError.domain == NSPOSIXErrorDomain && nsError.code == 57 {

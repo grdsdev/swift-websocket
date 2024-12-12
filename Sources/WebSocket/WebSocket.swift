@@ -1,11 +1,13 @@
 import Foundation
 
+/// Represents events that can occur on a WebSocket connection.
 public enum WebSocketEvent: Sendable {
   case text(String)
   case binary(Data)
   case close(code: WebSocketCloseCode?, reason: String)
 }
 
+/// Represents errors that can occur on a WebSocket connection.
 public enum WebSocketError: Error, LocalizedError {
   /// An error occurred while connecting to the peer.
   case connection(message: String, error: any Error)
@@ -23,14 +25,19 @@ public protocol WebSocket: Sendable, AnyObject {
   var closeReason: String? { get }
 
   /// Sends text data to the connected peer.
+  /// - Parameter text: The text data to send.
   func send(text: String)
 
   /// Sends binary data to the connected peer.
+  /// - Parameter binary: The binary data to send.
   func send(binary: Data)
 
   /// Closes the WebSocket connection and the ``events`` `AsyncStream`.
   ///
   /// Sends a Close frame to the peer. If the optional `code` and `reason` arguments are given, they will be included in the Close frame. If no `code` is set then the peer will see a 1005 status code. If no `reason` is set then the peer will not receive a reason string.
+  /// - Parameters:
+  ///   - code: The close code to send to the peer.
+  ///   - reason: The reason for closing the connection.
   func close(code: WebSocketCloseCode?, reason: String?)
 
   /// Listen for event messages in the connection.
@@ -82,6 +89,7 @@ extension WebSocket {
   }
 }
 
+/// Represents WebSocket close codes as defined by [RFC-6455](https://www.rfc-editor.org/rfc/rfc6455.html#section-7.4.1).
 public struct WebSocketCloseCode: RawRepresentable, Sendable, Hashable {
   public var rawValue: Int
 
