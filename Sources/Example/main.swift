@@ -13,7 +13,7 @@ do {
   }
 
   for i in 0... {
-    socket.send(text: "\(i)")
+    socket.send("\(i)")
     try await Task.sleep(nanoseconds: NSEC_PER_SEC)
   }
 } catch {

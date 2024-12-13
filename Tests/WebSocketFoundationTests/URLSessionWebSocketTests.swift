@@ -17,7 +17,7 @@ final class URLSessionWebSocketTests: XCTestCase {
 
     await Task.yield()
 
-    webSocket.send(text: "Hello, WebSocket!")
+    webSocket.send("Hello, WebSocket!")
     await fulfillment(of: [expectation], timeout: 10)
   }
 
@@ -34,7 +34,7 @@ final class URLSessionWebSocketTests: XCTestCase {
       }
     }
 
-    webSocket.send(binary: data)
+    webSocket.send(data)
     await fulfillment(of: [expectation], timeout: 10)
   }
 

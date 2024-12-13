@@ -49,7 +49,7 @@ public final class URLSessionWebSocket: WebSocket {
           // 3. an error occurred (e.g. network failure) and `_connectionClosed`
           //    will signal that and close `event`.
           webSocket._connectionClosed(
-            code: WebSocketCloseCode.abnormalClosure, reason: Data("abnormal close".utf8))
+            code: 1006, reason: Data("abnormal close".utf8))
         } else if let error {
           continuation.resume(
             throwing: WebSocketError.connection(
@@ -66,8 +66,7 @@ public final class URLSessionWebSocket: WebSocket {
       },
       onWebSocketTaskClosed: { session, task, code, reason in
         assert(webSocket != nil, "connection should exist by this time")
-        webSocket!._connectionClosed(
-          code: code.map(WebSocketCloseCode.init(rawValue:)), reason: reason)
+        webSocket!._connectionClosed(code: code, reason: reason)
       }
     )
 
@@ -82,13 +81,13 @@ public final class URLSessionWebSocket: WebSocket {
     var isClosed = false
     var onEvent: (@Sendable (WebSocketEvent) -> Void)?
 
-    var closeCode: WebSocketCloseCode?
+    var closeCode: Int?
     var closeReason: String?
   }
 
   let mutableState = LockIsolated(MutableState())
 
-  public var closeCode: WebSocketCloseCode? {
+  public var closeCode: Int? {
     mutableState.value.closeCode
   }
 
@@ -135,22 +134,22 @@ public final class URLSessionWebSocket: WebSocket {
     let (code, reason) =
       switch (nsError.domain, nsError.code) {
       case (NSPOSIXErrorDomain, 100):
-        (WebSocketCloseCode.protocolError, nsError.localizedDescription)
+        (1002, nsError.localizedDescription)
       case (_, _):
-        (WebSocketCloseCode.abnormalClosure, nsError.localizedDescription)
+        (1006, nsError.localizedDescription)
       }
     _task.cancel()
     _connectionClosed(code: code, reason: Data(reason.utf8))
   }
 
-  private func _connectionClosed(code: WebSocketCloseCode?, reason: Data?) {
+  private func _connectionClosed(code: Int?, reason: Data?) {
     guard !isClosed else { return }
 
     let closeReason = reason.map { String(decoding: $0, as: UTF8.self) } ?? ""
     _trigger(.close(code: code, reason: closeReason))
   }
 
-  public func send(text: String) {
+  public func send(_ text: String) {
     guard !isClosed else {
       return
     }
@@ -180,7 +179,7 @@ public final class URLSessionWebSocket: WebSocket {
     }
   }
 
-  public func send(binary: Data) {
+  public func send(_ binary: Data) {
     guard !isClosed else {
       return
     }
@@ -192,14 +191,14 @@ public final class URLSessionWebSocket: WebSocket {
     }
   }
 
-  public func close(code: WebSocketCloseCode?, reason: String?) {
+  public func close(code: Int?, reason: String?) {
     guard !isClosed else {
       return
     }
 
-    if code != nil, code?.rawValue != 1000, !(code!.rawValue >= 3000 && code!.rawValue <= 4999) {
+    if code != nil, code != 1000, !(code! >= 3000 && code! <= 4999) {
       preconditionFailure(
-        "Invalid argument: \(code!.rawValue), close code must be 1000 or in the range 3000-4999")
+        "Invalid argument: \(code!), close code must be 1000 or in the range 3000-4999")
     }
 
     if reason != nil, reason!.utf8.count > 123 {
@@ -211,7 +210,7 @@ public final class URLSessionWebSocket: WebSocket {
         if code != nil {
           let reason = reason ?? ""
           _task.cancel(
-            with: URLSessionWebSocketTask.CloseCode(rawValue: code!.rawValue)!,
+            with: URLSessionWebSocketTask.CloseCode(rawValue: code!)!,
             reason: Data(reason.utf8)
           )
         } else {
@@ -227,12 +226,6 @@ public final class URLSessionWebSocket: WebSocket {
 extension URLSession {
   static func sessionWithConfiguration(
     _ configuration: URLSessionConfiguration,
-    onRedirect: (
-      @Sendable (URLSession, URLSessionTask, HTTPURLResponse, URLRequest) -> URLRequest?
-    )? = nil,
-    onResponse: (@Sendable (URLSession, URLSessionTask, URLResponse) -> ResponseDisposition)? = nil,
-    onData: (@Sendable (URLSession, URLSessionTask, Data) -> Void)? = nil,
-    onFinishDownloading: (@Sendable (URLSession, URLSessionDownloadTask, URL) -> Void)? = nil,
     onComplete: (@Sendable (URLSession, URLSessionTask, (any Error)?) -> Void)? = nil,
     onWebSocketTaskOpened: (@Sendable (URLSession, URLSessionWebSocketTask, String?) -> Void)? =
       nil,
