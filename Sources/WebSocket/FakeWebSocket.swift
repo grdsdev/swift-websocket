@@ -7,6 +7,7 @@ public final class FakeWebSocket: WebSocket {
     var onEvent: (@Sendable (WebSocketEvent) -> Void)?
 
     var sentEvents: [WebSocketEvent] = []
+    var receivedEvents: [WebSocketEvent] = []
     var closeCode: Int?
     var closeReason: String?
   }
@@ -17,12 +18,14 @@ public final class FakeWebSocket: WebSocket {
     self.`protocol` = `protocol`
   }
 
+  /// Events send by this connection.
   public var sentEvents: [WebSocketEvent] {
     mutableState.value.sentEvents
   }
 
+  /// Events received by this connection.
   public var receivedEvents: [WebSocketEvent] {
-    mutableState.value.other?.sentEvents ?? []
+    mutableState.value.receivedEvents
   }
 
   public var closeCode: Int? {
@@ -37,6 +40,8 @@ public final class FakeWebSocket: WebSocket {
     mutableState.withValue { s in
       if s.isClosed { return }
 
+      s.sentEvents.append(.close(code: code, reason: reason ?? ""))
+
       s.isClosed = true
       if s.other?.isClosed == false {
         s.other?._trigger(.close(code: code ?? 1005, reason: reason ?? ""))
@@ -48,6 +53,8 @@ public final class FakeWebSocket: WebSocket {
     mutableState.withValue {
       guard !$0.isClosed else { return }
 
+      $0.sentEvents.append(.text(text))
+
       if $0.other?.isClosed == false {
         $0.other?._trigger(.text(text))
       }
@@ -57,6 +64,8 @@ public final class FakeWebSocket: WebSocket {
   public func send(_ binary: Data) {
     mutableState.withValue {
       guard !$0.isClosed else { return }
+
+      $0.sentEvents.append(.binary(binary))
 
       if $0.other?.isClosed == false {
         $0.other?._trigger(.binary(binary))
@@ -77,7 +86,7 @@ public final class FakeWebSocket: WebSocket {
 
   func _trigger(_ event: WebSocketEvent) {
     mutableState.withValue {
-      $0.sentEvents.append(event)
+      $0.receivedEvents.append(event)
       $0.onEvent?(event)
 
       if case .close(let code, let reason) = event {
