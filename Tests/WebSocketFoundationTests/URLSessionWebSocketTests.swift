@@ -3,6 +3,11 @@ import XCTest
 @testable import WebSocketFoundation
 
 final class URLSessionWebSocketTests: XCTestCase {
+  func testWebSocketWithHTTPURL() async throws {
+    let url = URL(string: "https://echo.websocket.org/.ws")!
+    _ = try await URLSessionWebSocket.connect(to: url)
+  }
+
   func testWebSocketSendText() async throws {
     let url = URL(string: "wss://echo.websocket.org/.ws")!
     let webSocket = try await URLSessionWebSocket.connect(to: url)
@@ -45,17 +50,17 @@ final class URLSessionWebSocketTests: XCTestCase {
 
     webSocket.onEvent = { event in
       if case .close(let code, let reason) = event {
-        XCTAssertEqual(code, .normalClosure)
+        XCTAssertEqual(code, 1000)
         XCTAssertEqual(reason, "Normal closure")
         expectation.fulfill()
       }
     }
 
-    webSocket.close(code: .normalClosure, reason: "Normal closure")
+    webSocket.close(code: 1000, reason: "Normal closure")
     webSocket.close()
     await fulfillment(of: [expectation], timeout: 10)
 
-    XCTAssertEqual(webSocket.closeCode, .normalClosure)
+    XCTAssertEqual(webSocket.closeCode, 1000)
     XCTAssertEqual(webSocket.closeReason, "Normal closure")
   }
 }

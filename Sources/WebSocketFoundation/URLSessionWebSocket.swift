@@ -23,15 +23,17 @@ public final class URLSessionWebSocket: WebSocket {
   ///   - protocols: An optional array of protocols to negotiate with the server.
   ///   - configuration: An optional `URLSessionConfiguration` to use for the connection.
   /// - Returns: A `URLSessionWebSocket` instance.
-  /// - Throws: An error if the connection fails.
+  /// - Throws: An error if the connection fails to be established.
   public static func connect(
     to url: URL,
     protocols: [String]? = nil,
     configuration: URLSessionConfiguration? = nil
   ) async throws -> URLSessionWebSocket {
-    guard url.scheme == "ws" || url.scheme == "wss" else {
-      preconditionFailure("only ws: and wss: schemes are supported")
-    }
+    let url = URL(
+      string: url.absoluteString
+        .replacingOccurrences(of: "http://", with: "ws://")
+        .replacingOccurrences(of: "https://", with: "wss://")
+    )!
 
     // It is safe to use `nonisolated(unsafe)` because all completion handlers runs on the same queue.
     nonisolated(unsafe) var continuation: CheckedContinuation<URLSessionWebSocket, any Error>!
