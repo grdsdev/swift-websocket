@@ -17,7 +17,7 @@ import Foundation
 /// lockIsolated.withValue { $0 += 1 }
 /// print(lockIsolated.value) // 1
 /// ```
-package final class LockIsolated<Value>: @unchecked Sendable {
+package final class LockIsolated<Value: Sendable>: @unchecked Sendable {
   private let lock = NSRecursiveLock()
   private var _value: Value
 
