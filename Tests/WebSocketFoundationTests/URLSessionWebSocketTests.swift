@@ -87,4 +87,17 @@ final class URLSessionWebSocketTests: XCTestCase {
     webSocket.close(code: 1000, reason: "Normal closure")
     await fulfillment(of: [expectation], timeout: 10)
   }
+
+  func testChannel() async throws {
+    let channel = _WebSocketChannel {
+      try await URLSessionWebSocket.connect(to: URL(string: "wss://echo.websocket.org/.ws")!)
+    }
+
+    try await channel.ready
+
+    for try await event in channel {
+      channel.send("received!")
+      channel.close(code: 1000)
+    }
+  }
 }
