@@ -83,6 +83,9 @@ public final class URLSessionWebSocket: WebSocket {
     var isClosed = false
     var onEvent: (@Sendable (WebSocketEvent) -> Void)?
 
+    // Buffer of events triggered before `onEvent` closuse was attached.
+    var buffer: [WebSocketEvent] = []
+
     var closeCode: Int?
     var closeReason: String?
   }
@@ -165,12 +168,29 @@ public final class URLSessionWebSocket: WebSocket {
 
   public var onEvent: (@Sendable (WebSocketEvent) -> Void)? {
     get { mutableState.value.onEvent }
-    set { mutableState.withValue { $0.onEvent = newValue } }
+    set {
+      mutableState.withValue { mt in
+        mt.onEvent = newValue
+
+        if mt.buffer.isEmpty == false {
+          let bufferedEvents = mt.buffer
+          mt.buffer.removeAll()
+
+          bufferedEvents.forEach {
+            mt.onEvent?($0)
+          }
+        }
+      }
+    }
   }
 
   private func _trigger(_ event: WebSocketEvent) {
     mutableState.withValue {
-      $0.onEvent?(event)
+      if let onEvent = $0.onEvent {
+        onEvent(event)
+      } else {
+        $0.buffer.append(event)
+      }
 
       if case .close(let code, let reason) = event {
         $0.onEvent = nil

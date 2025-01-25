@@ -63,4 +63,28 @@ final class URLSessionWebSocketTests: XCTestCase {
     XCTAssertEqual(webSocket.closeCode, 1000)
     XCTAssertEqual(webSocket.closeReason, "Normal closure")
   }
+
+  func testBufferEvents() async throws {
+    let url = URL(string: "wss://echo.websocket.org/.ws")!
+    let webSocket = try await URLSessionWebSocket.connect(to: url)
+
+    let expectation = XCTestExpectation(description: "text received")
+    webSocket.send("hello world")
+
+    // wait until socket receives an event.
+    try await Task.sleep(for: .seconds(1))
+
+    let event = await webSocket.events.dropFirst().first {
+      if case .text = $0 { return true }
+      return false
+    }
+
+    if case .text(let text) = event {
+      XCTAssertEqual(text, "hello world")
+      expectation.fulfill()
+    }
+
+    webSocket.close(code: 1000, reason: "Normal closure")
+    await fulfillment(of: [expectation], timeout: 10)
+  }
 }
