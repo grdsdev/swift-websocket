@@ -117,10 +117,12 @@ public final class URLSessionWebSocket: WebSocket {
   }
 
   private func _scheduleReceive() {
-    _task.receive { [weak self] result in
-      switch result {
-      case .success(let value): self?._handleMessage(value)
-      case .failure(let error): self?._closeConnectionWithError(error)
+    Task {
+      do {
+        let value = try await _task.receive()
+        self._handleMessage(value)
+      } catch {
+        self._closeConnectionWithError(error)
       }
     }
   }
@@ -155,9 +157,11 @@ public final class URLSessionWebSocket: WebSocket {
       return
     }
 
-    _task.send(.string(text)) { [weak self] error in
-      if let error {
-        self?._closeConnectionWithError(error)
+    Task {
+      do {
+        try await _task.send(.string(text))
+      } catch {
+        self._closeConnectionWithError(error)
       }
     }
   }
@@ -185,9 +189,11 @@ public final class URLSessionWebSocket: WebSocket {
       return
     }
 
-    _task.send(.data(binary)) { [weak self] error in
-      if let error {
-        self?._closeConnectionWithError(error)
+    Task {
+      do {
+        try await _task.send(.data(binary))
+      } catch {
+        self._closeConnectionWithError(error)
       }
     }
   }
