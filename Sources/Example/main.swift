@@ -14,7 +14,7 @@ do {
 
   for i in 0... {
     socket.send(text: "\(i)")
-    try await Task.sleep(nanoseconds: NSEC_PER_SEC)
+    try await Task.sleep(nanoseconds: 1_000_000_000)
   }
 } catch {
   debugPrint(error)
