@@ -33,9 +33,14 @@ public final class URLSessionWebSocket: WebSocket {
       preconditionFailure("only ws: and wss: schemes are supported")
     }
 
-    // It is safe to use `nonisolated(unsafe)` because all completion handlers runs on the same queue.
-    nonisolated(unsafe) var continuation: CheckedContinuation<URLSessionWebSocket, any Error>!
-    nonisolated(unsafe) var webSocket: URLSessionWebSocket?
+    // It is safe to not synchronize access to these variables since all completion handlers runs on the same queue.
+    #if compiler(>=6.0)
+      nonisolated(unsafe) var continuation: CheckedContinuation<URLSessionWebSocket, any Error>!
+      nonisolated(unsafe) var webSocket: URLSessionWebSocket?
+    #else
+      var continuation: CheckedContinuation<URLSessionWebSocket, any Error>!
+      var webSocket: URLSessionWebSocket?
+    #endif
 
     let session = URLSession.sessionWithConfiguration(
       configuration ?? .default,
