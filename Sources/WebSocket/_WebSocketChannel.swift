@@ -8,6 +8,9 @@
 import Foundation
 
 public struct _WebSocketChannel: AsyncSequence {
+  public typealias AsyncIterator = AsyncStream<WebSocketEvent>.AsyncIterator
+  public typealias Element = AsyncStream<WebSocketEvent>.Element
+
   private let _conn = LockIsolated<(any WebSocket)?>(nil)
   private let connBuilder: () async throws -> any WebSocket
 
@@ -38,7 +41,7 @@ public struct _WebSocketChannel: AsyncSequence {
     conn.close(code: code, reason: reason)
   }
 
-  public func makeAsyncIterator() -> some AsyncIteratorProtocol {
+  public func makeAsyncIterator() -> AsyncIterator {
     conn.events.makeAsyncIterator()
   }
 }

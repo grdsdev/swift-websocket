@@ -33,9 +33,14 @@ public final class URLSessionWebSocket: WebSocket {
       preconditionFailure("only ws: and wss: schemes are supported")
     }
 
-    // It is safe to use `nonisolated(unsafe)` because all completion handlers runs on the same queue.
-    nonisolated(unsafe) var continuation: CheckedContinuation<URLSessionWebSocket, any Error>!
-    nonisolated(unsafe) var webSocket: URLSessionWebSocket?
+    // It is safe to not synchronize access to these variables since all completion handlers runs on the same queue.
+    #if compiler(>=6.0)
+      nonisolated(unsafe) var continuation: CheckedContinuation<URLSessionWebSocket, any Error>!
+      nonisolated(unsafe) var webSocket: URLSessionWebSocket?
+    #else
+      var continuation: CheckedContinuation<URLSessionWebSocket, any Error>!
+      var webSocket: URLSessionWebSocket?
+    #endif
 
     let session = URLSession.sessionWithConfiguration(
       configuration ?? .default,
@@ -117,10 +122,12 @@ public final class URLSessionWebSocket: WebSocket {
   }
 
   private func _scheduleReceive() {
-    _task.receive { [weak self] result in
-      switch result {
-      case .success(let value): self?._handleMessage(value)
-      case .failure(let error): self?._closeConnectionWithError(error)
+    Task {
+      do {
+        let value = try await _task.receive()
+        self._handleMessage(value)
+      } catch {
+        self._closeConnectionWithError(error)
       }
     }
   }
@@ -155,9 +162,11 @@ public final class URLSessionWebSocket: WebSocket {
       return
     }
 
-    _task.send(.string(text)) { [weak self] error in
-      if let error {
-        self?._closeConnectionWithError(error)
+    Task {
+      do {
+        try await _task.send(.string(text))
+      } catch {
+        self._closeConnectionWithError(error)
       }
     }
   }
@@ -185,9 +194,11 @@ public final class URLSessionWebSocket: WebSocket {
       return
     }
 
-    _task.send(.data(binary)) { [weak self] error in
-      if let error {
-        self?._closeConnectionWithError(error)
+    Task {
+      do {
+        try await _task.send(.data(binary))
+      } catch {
+        self._closeConnectionWithError(error)
       }
     }
   }
