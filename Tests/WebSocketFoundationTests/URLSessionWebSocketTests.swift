@@ -39,7 +39,7 @@ final class URLSessionWebSocketTests: XCTestCase {
       }
     }
 
-    webSocket.send(data)
+    webSocket.send(binary: data)
     await fulfillment(of: [expectation], timeout: 10)
   }
 
@@ -50,7 +50,7 @@ final class URLSessionWebSocketTests: XCTestCase {
 
     webSocket.onEvent = { event in
       if case .close(let code, let reason) = event {
-        XCTAssertEqual(code, 1000)
+        XCTAssertEqual(code, .normalClosure)
         XCTAssertEqual(reason, "Normal closure")
         expectation.fulfill()
       }

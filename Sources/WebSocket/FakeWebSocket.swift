@@ -8,7 +8,7 @@ public final class FakeWebSocket: WebSocket {
 
     var sentEvents: [WebSocketEvent] = []
     var receivedEvents: [WebSocketEvent] = []
-    var closeCode: Int?
+    var closeCode: WebSocketCloseCode?
     var closeReason: String?
   }
 
@@ -28,7 +28,7 @@ public final class FakeWebSocket: WebSocket {
     mutableState.value.receivedEvents
   }
 
-  public var closeCode: Int? {
+  public var closeCode: WebSocketCloseCode? {
     mutableState.value.closeCode
   }
 
@@ -36,7 +36,7 @@ public final class FakeWebSocket: WebSocket {
     mutableState.value.closeReason
   }
 
-  public func close(code: Int?, reason: String?) {
+  public func close(code: WebSocketCloseCode?, reason: String?) {
     mutableState.withValue { s in
       if s.isClosed { return }
 
@@ -44,12 +44,12 @@ public final class FakeWebSocket: WebSocket {
 
       s.isClosed = true
       if s.other?.isClosed == false {
-        s.other?._trigger(.close(code: code ?? 1005, reason: reason ?? ""))
+        s.other?._trigger(.close(code: code ?? .noStatusReceived, reason: reason ?? ""))
       }
     }
   }
 
-  public func send(_ text: String) {
+  public func send(text: String) {
     mutableState.withValue {
       guard !$0.isClosed else { return }
 
@@ -61,7 +61,7 @@ public final class FakeWebSocket: WebSocket {
     }
   }
 
-  public func send(_ binary: Data) {
+  public func send(binary: Data) {
     mutableState.withValue {
       guard !$0.isClosed else { return }
 

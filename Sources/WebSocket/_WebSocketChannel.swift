@@ -26,15 +26,15 @@ public struct _WebSocketChannel: AsyncSequence {
     _conn.withValue { $0! }
   }
 
-  public func send(_ text: String) {
-    conn.send(text)
+  public func send(text: String) {
+    conn.send(text: text)
   }
 
-  public func send(_ data: Data) {
-    conn.send(data)
+  public func send(binary: Data) {
+    conn.send(binary: binary)
   }
 
-  public func close(code: Int? = nil, reason: String? = nil) {
+  public func close(code: WebSocketCloseCode? = nil, reason: String? = nil) {
     conn.close(code: code, reason: reason)
   }
 
